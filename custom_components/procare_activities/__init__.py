@@ -1,7 +1,7 @@
 """The Procare Activities integration."""
 import asyncio
 import logging
-from datetime import timedelta
+from datetime import timedelta, datetime, time
 import aiohttp
 
 from homeassistant.config_entries import ConfigEntry
@@ -29,8 +29,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     async def async_update_data():
         """Fetch data from API endpoint."""
+        # Check if current time is within polling hours (8 AM - 7 PM)
+        now = datetime.now().time()
+        start_time = time(8, 0)  # 8:00 AM
+        end_time = time(19, 0)   # 7:00 PM
+        
+        if not (start_time <= now <= end_time):
+            _LOGGER.debug(
+                "Outside polling hours (8 AM - 7 PM). Current time: %s. Skipping update.",
+                now.strftime("%H:%M")
+            )
+            # Return existing data if available, otherwise empty list
+            return getattr(async_update_data, '_last_data', [])
+        
         try:
-            return await api.async_get_activities(selected_kid_id)
+            data = await api.async_get_activities(selected_kid_id)
+            # Cache the last successful data
+            async_update_data._last_data = data
+            return data
         except ProcareAuthError as err:
             raise ConfigEntryAuthFailed from err
         except Exception as err:
@@ -70,4 +86,3 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.data[DOMAIN].pop(entry.entry_id)
 
     return unload_ok
-
