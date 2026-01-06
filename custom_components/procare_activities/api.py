@@ -168,12 +168,35 @@ class ProcareApi:
                 title = activity_type.replace("_", " ").title()
                 details = act.get("comment", "") or ""
                 data = act.get("data", {})
-
+                
+                # Get the person's name - could be staff or parent
+                staff_name = act.get("staff_present_name")
+                
                 if activity_type in ("sign_in", "sign_out"):
+                    # Check multiple possible sources for who signed them in/out
                     activiable = act.get("activiable", {})
-                    signed_by = activiable.get(f"signed_{activity_type}_by", "Unknown")
+                    
+                    # Try to get the signer's name from various fields
+                    signed_by = (
+                        activiable.get(f"signed_{activity_type}_by") or  # Staff/parent name
+                        staff_name or  # Staff present
+                        activiable.get("name") or  # Generic name field
+                        activiable.get("parent_name") or  # Parent name
+                        activiable.get("carer_name")  # Carer name
+                    )
+                    
+                    # Log the raw data for debugging
+                    if not signed_by:
+                        _LOGGER.debug(
+                            "Could not find signer name. Activity: %s, Activiable: %s", 
+                            act.get("activity_type"), 
+                            activiable
+                        )
+                        signed_by = "Unknown"
+                    
                     title = f"Signed {activity_type.replace('sign_', '').title()}"
                     details = f"By {signed_by}"
+                    
                 elif activity_type == "meal" and data:
                     title = f"Meal: {data.get('type', 'Meal')}"
                     details = f"{data.get('desc', '')} ({data.get('quantity', '')})".strip()
@@ -189,10 +212,9 @@ class ProcareApi:
                     "title": title.strip(),
                     "details": details.strip(),
                     "photo_url": act.get("photo_url"),
-                    "staff": act.get("staff_present_name"),
+                    "staff": staff_name or "Unknown",
                 })
             except Exception:
                 _LOGGER.warning("Could not parse activity record: %s", act, exc_info=True)
         
         return parsed
-
