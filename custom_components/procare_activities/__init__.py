@@ -31,7 +31,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         """Fetch data from API endpoint."""
         # Check if current time is within polling hours (8 AM - 7 PM)
         now = datetime.now().time()
-        start_time = time(8, 0)  # 8:00 AM
+        start_time = time(7, 0)  # 8:00 AM
         end_time = time(19, 0)   # 7:00 PM
         
         if not (start_time <= now <= end_time):
